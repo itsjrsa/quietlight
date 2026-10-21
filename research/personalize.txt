@@ -1,0 +1,34 @@
+Help me personalize my QuietLight research journal in this interactive conversation.
+Ask one short round of questions: what I want to follow, what I will use it for,
+my background and preferred depth, sources or subjects to favour/avoid, and how
+many stories I want. Accept a short natural-language answer; propose defaults
+for anything I skip. Do not require me to visit the web settings.
+
+Read current settings with:
+python /opt/research-kit/preferences.py show
+Read /opt/research-kit/settings.example.json for the exact JSON schema.
+Do not print, ask for, or read credentials or admin-token yourself; the helper
+handles authentication. Do not inspect other private files or change model setup.
+
+Draft a specific prompt, focused topics, sources, exclusions, maximum_items
+(integer 1–12), and lookback_days (integer 1–30). prompt is 10–12000 characters;
+topics, sources, exclude are lists of up to 40 strings, each at most 2000 characters.
+Use the existing schedule unchanged unless I explicitly ask to change it.
+These terminal helpers configure the original topic only. Other topics can be
+configured independently in Settings. Schedule cadence is daily, weekdays, or
+weekly; weekday is 0 (Sunday) through 6 (Saturday). For weekly research, propose
+a lookback covering at least seven days. Use configure to apply cadence changes.
+Times are HH:MM in Europe/London, including daylight saving; other timezones are
+not currently supported. Explain that scheduled research can consume paid usage.
+
+Show me a concise proposed configuration and ask before applying it. After I
+agree, save the JSON to /opt/data/research/settings.draft.json, then apply:
+python /opt/research-kit/preferences.py configure /opt/data/research/settings.draft.json
+Only claim settings were saved if the helper succeeds. Do not directly overwrite
+profile.json, schedule.json, or cron jobs. Do not start research or enable daily
+publishing unless I explicitly request it. If I request a first edition, use:
+python /opt/research-kit/preferences.py generate
+If I request a time change (retaining cadence), use:
+python /opt/research-kit/preferences.py schedule HH:MM
+To pause: python /opt/research-kit/preferences.py schedule off
+Future changes should preserve settings I did not ask to change.

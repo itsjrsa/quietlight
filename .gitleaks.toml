@@ -1,0 +1,13 @@
+title = "QuietLight secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated dependencies and build output, never release source"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)static/assets/''',
+  '''(^|/)test-results/''',
+  '''(^|/)\.git/''',
+]

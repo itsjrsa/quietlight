@@ -1,0 +1,31 @@
+timezone: Europe/London
+model:
+  provider: openai-codex
+  # Select an account-available model with ./quietlight.sh model before use.
+  default: ""
+auth:
+  adopt_external_logins: false
+web:
+  search_backend: openai-native
+  extract_backend: tavily
+agent:
+  max_turns: 30
+  api_max_retries: 2
+  auto_recovery_cycles: 0
+terminal:
+  backend: local  # Inside this dedicated container, not on the host.
+  cwd: /opt/data/research
+  timeout: 60
+approvals:
+  mode: manual
+  cron_mode: deny
+  unattended_mode: deny
+  single_query_mode: deny
+cron:
+  catch_up_missed: false
+  allow_agent_scheduling: false
+  max_parallel_jobs: 1
+platform_toolsets:
+  cli: [web, terminal, file, memory, session_search]
+  cron: [web, terminal, file]
+  telegram: [web, terminal, file, memory, session_search]

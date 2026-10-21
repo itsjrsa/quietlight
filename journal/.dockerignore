@@ -1,0 +1,7 @@
+node_modules
+__pycache__
+test-results
+static/assets
+test_*.py
+ui_fixture.py
+test-ui.mjs

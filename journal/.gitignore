@@ -1,0 +1,4 @@
+node_modules/
+static/assets/
+__pycache__/
+test-results/

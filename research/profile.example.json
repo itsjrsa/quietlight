@@ -1,0 +1,9 @@
+{
+  "topics": ["Significant developments in science and technology with practical implications for everyday life"],
+  "preferred_sources": [],
+  "exclude": ["Rumours, promotional claims without evidence, and repetitive coverage"],
+  "lookback_days": 3,
+  "maximum_items": 6,
+  "audience": "An informed reader who wants clear explanations, evidence, and practical significance.",
+  "instructions": "Prepare a concise, accessible briefing on significant science and technology developments. Explain what changed, the evidence, why it matters, and any practical implications. Define unfamiliar terms. Prefer original research and primary sources. Distinguish peer-reviewed work, preprints, and product announcements. Cite sources, explain uncertainty, and avoid hype. Prioritize a few useful stories over comprehensive coverage. Quiet days should be short."
+}

@@ -1,0 +1,22 @@
+fail_fast: false
+repos:
+  - repo: local
+    hooks:
+      - id: privacy
+        name: Check exact staged snapshot for private information
+        entry: python3 scripts/check_privacy.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: secrets
+        name: Gitleaks (pinned, redacted, staged files)
+        entry: bash scripts/check-secrets.sh staged
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: python-tests
+        name: Privacy, worker, archive, and API regression tests
+        entry: bash scripts/test-python.sh
+        language: system
+        pass_filenames: false
+        always_run: true
