@@ -15,7 +15,7 @@
   "dependencies": {
     "dompurify": "3.4.17",
     "marked": "15.0.12",
-    "mermaid": "11.17.2"
+    "mermaid": "12.2.0"
   },
   "overrides": {
     "katex": "0.18.2"
