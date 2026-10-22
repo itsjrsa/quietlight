@@ -595,6 +595,8 @@ try {
   );
   await viewer.getByRole("button", { name: "Reset zoom" }).click();
   await page.keyboard.press("Escape");
+  // Native dialog close events run asynchronously; wait for media restoration.
+  await page.locator("figure.diagram > svg").waitFor();
   assert.equal(await viewer.isVisible(), false);
   assert.equal(
     await maximizeDiagram.evaluate((el) => el === document.activeElement),
@@ -607,6 +609,7 @@ try {
   await viewer.waitFor();
   await page.screenshot({ path: "test-results/diagram-expanded-mobile.png" });
   await viewer.getByRole("button", { name: "Close expanded view" }).click();
+  await page.locator("figure.diagram > svg").waitFor();
   await page
     .getByRole("button", { name: /Maximize image/ })
     .first()
