@@ -2,6 +2,7 @@
 """Reject private material without printing its contents. Default: exact Git index."""
 
 import argparse
+import hashlib
 import ipaddress
 import re
 import subprocess
@@ -32,6 +33,13 @@ PRIVATE_NAMES = {
 PRIVATE_DIRS = {"data", "backups", "logs", "test-results", "node_modules", ".venv", ".vupai"}
 PRIVATE_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".pem", ".key", ".log", ".zip", ".gz", ".tar"}
 
+# Visually reviewed screenshots of synthetic ui_fixture.py content only.
+# Pin both path and bytes: replacements require a fresh privacy review.
+REVIEWED_IMAGES = {
+    "docs/images/quietlight-light.png": "09f6d05463a8962397b291926fe352888eb7810afdb27893806710285be02e2d",
+    "docs/images/quietlight-dark.png": "a9538f6607d46f36c7f39bb362b0b57a937e4d47a438d0f6a5bcc1837f52eb62",
+}
+
 
 def findings(name, content, mode="100644"):
     """Return line/reason pairs, never the matching value."""
@@ -47,6 +55,8 @@ def findings(name, content, mode="100644"):
         problems.append((1, "private or generated file must not be committed"))
     if mode not in {"100644", "100755"}:
         problems.append((1, "symlinks and submodules require a separate review"))
+    if name in REVIEWED_IMAGES and hashlib.sha256(content).hexdigest() == REVIEWED_IMAGES[name]:
+        return problems
     try:
         text = content.decode("utf-8")
     except UnicodeDecodeError:

@@ -20,6 +20,11 @@ runs a pinned Gitleaks container and tests the privacy guard. Docker must be
 running; missing tools or failed scans block the commit. Localhost/listen addresses
 are the only IP exceptions. Do not add real example IPs to documentation.
 
+README screenshots use only the isolated synthetic UI fixture. To refresh them,
+run `npm run build` and `UPDATE_SCREENSHOTS=1 npm run test:ui` in `journal/`.
+Inspect both images for private information before updating their exact SHA-256
+entries in `scripts/check_privacy.py`; other binaries remain rejected.
+
 Before staging, run `python3 scripts/check_privacy.py --worktree`. After staging,
 run `pre-commit run --all-files`. CI repeats the checks and scans Git history.
 Hooks can be bypassed locally, so repository branch protection must also require

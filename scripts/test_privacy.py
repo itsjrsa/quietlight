@@ -5,10 +5,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_privacy import findings, scan, scan_history
+from check_privacy import REVIEWED_IMAGES, findings, scan, scan_history
 
 
 class PrivacyTests(unittest.TestCase):
+    def test_reviewed_images_require_exact_path_bytes_and_regular_file(self):
+        root = Path(__file__).resolve().parent.parent
+        for name in REVIEWED_IMAGES:
+            image = (root / name).read_bytes()
+            self.assertFalse(findings(name, image))
+            self.assertTrue(findings(name, image + b"changed"))
+            self.assertTrue(findings("other.png", image))
+            self.assertTrue(findings(name, image, "120000"))
+
     def test_addresses(self):
         for parts in [(100, 90, 80, 70), (192, 168, 10, 20), (8, 8, 4, 4)]:
             value = ".".join(map(str, parts)).encode()

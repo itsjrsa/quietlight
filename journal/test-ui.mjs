@@ -60,6 +60,55 @@ try {
       );
     await page.goto(base);
     await page.locator(".topic-card").first().waitFor();
+    const theme = () => page.locator("html").getAttribute("data-theme");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.waitForFunction(
+      () => document.documentElement.dataset.theme === "dark",
+    );
+    assert.equal(await theme(), "dark");
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.waitForFunction(
+      () => document.documentElement.dataset.theme === "light",
+    );
+    await page.getByRole("button", { name: "Theme: system" }).click();
+    assert.equal(await theme(), "light");
+    assert.equal(
+      await page.locator(".site-header").evaluate((el) => el.offsetHeight),
+      width > 760 ? 60 : 56,
+    );
+    if (process.env.UPDATE_SCREENSHOTS === "1" && width === 1440) {
+      await mkdir("../docs/images", { recursive: true });
+      await page.screenshot({
+        path: "../docs/images/quietlight-light.png",
+        clip: { x: 0, y: 0, width: 1440, height: 540 },
+      });
+    }
+    await page.getByRole("button", { name: "Theme: light" }).click();
+    assert.equal(await theme(), "dark");
+    await page.reload();
+    await page.locator(".topic-card").first().waitFor();
+    assert.equal(await theme(), "dark");
+    await page.emulateMedia({ colorScheme: "light" });
+    assert.equal(await theme(), "dark");
+    if (process.env.UPDATE_SCREENSHOTS === "1" && width === 1440) {
+      await page.screenshot({
+        path: "../docs/images/quietlight-dark.png",
+        clip: { x: 0, y: 0, width: 1440, height: 540 },
+      });
+    }
+    await page.emulateMedia({ media: "print" });
+    assert.equal(
+      await page
+        .locator("html")
+        .evaluate((el) => getComputedStyle(el).colorScheme),
+      "light",
+    );
+    await page.emulateMedia({ media: "screen" });
+    await page.getByRole("button", { name: "Theme: dark" }).click();
+    assert.equal(await theme(), "light");
+    // Exercise the existing reading/settings suite in dark mode too.
+    await page.getByRole("button", { name: "Theme: system" }).click();
+    await page.getByRole("button", { name: "Theme: light" }).click();
     await fits("Home");
     await page.screenshot({
       path: `test-results/home-${width}.png`,
@@ -494,7 +543,14 @@ try {
   );
   // Isolated browser fixture: exercise diagram rendering and untrusted Markdown.
   const page = await browser.newPage();
+  await page.emulateMedia({ colorScheme: "dark" });
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/sample.svg", (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="400"><rect width="1000" height="400" fill="#dbe4d4"/><text x="60" y="200" font-size="40">Illustrative research image</text></svg>',
+    }),
+  );
   await page.route("**/api/editions/2026-01-01?topic=default", (route) =>
     route.fulfill({
       json: {
@@ -503,21 +559,70 @@ try {
         minutes: 1,
         items: [],
         markdown:
-          '# Diagram test fixture\n\n## Method\n\n**A useful combination.**\n\n```mermaid\nflowchart LR\n A[Forecast A] --> C[Combine]\n B[Forecast B] --> C\n C --> D[Evaluate]\n```\n\n<script>window.compromised=true</script><img src=x onerror="window.compromised=true">\n\n[Bad link](javascript:alert(1))',
+          '# Diagram test fixture\n\n## Method\n\n**A useful combination.**\n\n```mermaid\nflowchart LR\n A[Forecast A] --> C[Combine]\n B[Forecast B] --> C\n C --> D[Evaluate]\n```\n\n![Illustrative research image](/sample.svg)\n\n<img src="https://example.org/tracker.png" alt="External image" srcset="https://example.org/tracker2.png 2x">\n\n<script>window.compromised=true</script><img src=x onerror="window.compromised=true">\n\n[Bad link](javascript:alert(1))',
       },
     }),
   );
   await page.goto(base + "/edition/2026-01-01");
-  await page.locator("figure.diagram svg").waitFor();
+  await page.locator("figure.diagram > svg").waitFor();
   assert.match(
-    await page.locator("figure.diagram svg").textContent(),
+    await page.locator("figure.diagram > svg").textContent(),
     /Forecast A/,
   );
   assert.equal(await page.locator("figure.diagram foreignObject").count(), 0);
   assert.equal(await page.evaluate(() => !!window.compromised), false);
   assert.equal(await page.locator('.prose a[href^="javascript:"]').count(), 0);
+  assert.equal(await page.locator('.prose img[src^="https:"]').count(), 0);
+  assert.equal(
+    await page.locator(".prose img[srcset], .prose img[onerror]").count(),
+    0,
+  );
+  const viewer = page.getByRole("dialog", { name: "Expanded media viewer" });
+  const maximizeDiagram = page.getByRole("button", {
+    name: /Maximize diagram/,
+  });
+  await maximizeDiagram.click();
+  await viewer.waitFor();
+  assert.equal(await viewer.locator("svg").count(), 1);
+  const initialWidth = await viewer
+    .locator("svg")
+    .evaluate((el) => el.getBoundingClientRect().width);
+  await viewer.getByRole("button", { name: "Zoom in", exact: true }).click();
+  assert.ok(
+    (await viewer
+      .locator("svg")
+      .evaluate((el) => el.getBoundingClientRect().width)) > initialWidth,
+  );
+  await viewer.getByRole("button", { name: "Reset zoom" }).click();
+  await page.keyboard.press("Escape");
+  assert.equal(await viewer.isVisible(), false);
+  assert.equal(
+    await maximizeDiagram.evaluate((el) => el === document.activeElement),
+    true,
+  );
+  assert.equal(await page.locator("figure.diagram > svg").count(), 1);
   await page.screenshot({ path: "test-results/diagram.png", fullPage: true });
   await page.setViewportSize({ width: 320, height: 800 });
+  await maximizeDiagram.click();
+  await viewer.waitFor();
+  await page.screenshot({ path: "test-results/diagram-expanded-mobile.png" });
+  await viewer.getByRole("button", { name: "Close expanded view" }).click();
+  await page
+    .getByRole("button", { name: /Maximize image/ })
+    .first()
+    .click();
+  assert.equal(
+    await viewer.locator('img[alt="Illustrative research image"]').count(),
+    1,
+  );
+  await viewer.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.mouse.click(1, 1);
+  assert.equal(await viewer.isVisible(), false);
+  await page.locator('.prose img[alt="Illustrative research image"]').waitFor();
+  assert.equal(
+    await page.locator('.prose img[alt="Illustrative research image"]').count(),
+    1,
+  );
   assert.ok(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -582,6 +687,32 @@ try {
   assert.equal(await page.locator(".topic-card").count(), 10);
   console.log(
     "PASS 20-topic library, long titles, escaped names, cadence filtering, and 320px layout",
+  );
+  const restricted = await browser.newContext({ colorScheme: "dark" });
+  await restricted.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() {
+        throw new DOMException("Storage unavailable", "SecurityError");
+      },
+    });
+  });
+  const restrictedPage = await restricted.newPage();
+  restrictedPage.on("pageerror", (error) => errors.push(error.message));
+  await restrictedPage.goto(base);
+  await restrictedPage.getByRole("button", { name: "Theme: system" }).click();
+  assert.equal(
+    await restrictedPage.locator("html").getAttribute("data-theme"),
+    "light",
+  );
+  await restrictedPage.getByRole("button", { name: "Theme: light" }).click();
+  assert.equal(
+    await restrictedPage.locator("html").getAttribute("data-theme"),
+    "dark",
+  );
+  await restricted.close();
+  assert.deepEqual(errors, []);
+  console.log(
+    "PASS system theme, manual preference, persistence, print palette, and unavailable storage",
   );
 } finally {
   await browser?.close();

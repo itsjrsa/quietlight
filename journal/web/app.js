@@ -52,13 +52,111 @@ function toast(message) {
   el.timeout = setTimeout(() => el.classList.remove("visible"), 4500);
 }
 function header(active = "journal") {
-  return `<header class="site-header"><div class="header-inner"><a class="wordmark" href="/" aria-label="QuietLight home">QuietLight</a><nav aria-label="Main navigation"><a href="/" ${active === "journal" ? 'aria-current="page"' : ""}>Topics</a><a href="/settings" ${active === "settings" ? 'aria-current="page"' : ""}>${gear}<span>Settings</span></a></nav></div></header>`;
+  return `<header class="site-header"><div class="header-inner"><a class="wordmark" href="/" aria-label="QuietLight home">QuietLight</a><nav aria-label="Main navigation"><a href="/" ${active === "journal" ? 'aria-current="page"' : ""}>Topics</a><a href="/settings" ${active === "settings" ? 'aria-current="page"' : ""}>${gear}<span>Settings</span></a><button type="button" class="theme-toggle" aria-label="Change color theme">◐</button></nav></div></header>`;
 }
 function footer() {
   return '<footer class="site-footer"><span>QuietLight</span><span>A quieter way to stay curious.</span><a href="#top">Back to top ↑</a></footer>';
 }
+function installMediaZoom() {
+  const media = [...document.querySelectorAll(".prose img, .prose .diagram")];
+  if (!media.length) return;
+  const lightbox = document.createElement("dialog");
+  lightbox.className = "media-lightbox";
+  lightbox.setAttribute("aria-label", "Expanded media viewer");
+  lightbox.innerHTML =
+    '<div class="media-lightbox-toolbar"><span>Expanded view</span><div><button type="button" aria-label="Zoom out">−</button><button type="button" aria-label="Reset zoom">100%</button><button type="button" aria-label="Zoom in">+</button><button type="button" aria-label="Close expanded view" autofocus>×</button></div></div><div class="media-lightbox-content" tabindex="0" aria-label="Image or diagram; scroll to explore"></div>';
+  app.append(lightbox);
+  const content = lightbox.querySelector(".media-lightbox-content");
+  let item,
+    placeholder,
+    opener,
+    originalStyle,
+    baseWidth,
+    zoom = 1;
+  const resize = () => {
+    item.style.width = `${baseWidth * zoom}px`;
+    lightbox.querySelector('[aria-label="Reset zoom"]').textContent =
+      `${Math.round(zoom * 100)}%`;
+    lightbox.querySelector('[aria-label="Zoom out"]').disabled = zoom <= 0.5;
+    lightbox.querySelector('[aria-label="Zoom in"]').disabled = zoom >= 4;
+  };
+  lightbox.querySelector('[aria-label="Close expanded view"]').onclick = () =>
+    lightbox.close();
+  lightbox.querySelector('[aria-label="Zoom in"]').onclick = () => {
+    zoom = Math.min(4, zoom + 0.25);
+    resize();
+  };
+  lightbox.querySelector('[aria-label="Zoom out"]').onclick = () => {
+    zoom = Math.max(0.5, zoom - 0.25);
+    resize();
+  };
+  lightbox.querySelector('[aria-label="Reset zoom"]').onclick = () => {
+    zoom = 1;
+    resize();
+  };
+  lightbox.addEventListener("close", () => {
+    if (!item) return;
+    if (originalStyle === null) item.removeAttribute("style");
+    else item.setAttribute("style", originalStyle);
+    placeholder.replaceWith(item);
+    item = null;
+    opener.focus({ preventScroll: true });
+  });
+  lightbox.onclick = (event) => {
+    const bounds = lightbox.getBoundingClientRect();
+    if (
+      event.target === lightbox &&
+      (event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom)
+    )
+      lightbox.close();
+  };
+  media.forEach((element, index) => {
+    let target = element;
+    if (element.matches("img")) {
+      target = document.createElement("span");
+      target.className = "media-image";
+      element.replaceWith(target);
+      target.append(element);
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "media-zoom-button";
+    button.setAttribute(
+      "aria-label",
+      `Maximize ${element.matches("img") ? "image" : "diagram"} ${index + 1}`,
+    );
+    button.title = "Maximize";
+    button.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/></svg>';
+    button.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      item = element.matches("img") ? element : element.querySelector("svg");
+      if (!item) return;
+      opener = button;
+      originalStyle = item.getAttribute("style");
+      placeholder = document.createComment("Expanded media position");
+      item.replaceWith(placeholder);
+      content.replaceChildren(item);
+      lightbox.showModal();
+      const available = Math.max(240, content.clientWidth - 48);
+      baseWidth = item.matches("svg")
+        ? Math.max(available, item.viewBox.baseVal.width)
+        : Math.min(available, item.naturalWidth || available);
+      zoom = 1;
+      resize();
+      content.scrollTo(0, 0);
+    };
+    target.classList.add("media-zoom-target");
+    target.append(button);
+  });
+}
 function setPage(content, active) {
   app.innerHTML = header(active) + content + footer();
+  document.dispatchEvent(new Event("quietlight:page"));
   window.scrollTo(0, 0);
 }
 const weekdays = [
@@ -394,10 +492,38 @@ async function article(date, seq, topicId = "default") {
   if (seq !== pageSequence) return;
   document.title = report.title + " — QuietLight";
   const md = report.markdown.replace(/^# [^\n]+\n+/, "");
-  const html = DOMPurify.sanitize(marked.parse(md), {
-    FORBID_TAGS: ["img", "iframe", "style", "form", "input", "script"],
+  const fragment = DOMPurify.sanitize(marked.parse(md), {
+    RETURN_DOM_FRAGMENT: true,
+    FORBID_TAGS: ["iframe", "style", "form", "input", "script"],
     FORBID_ATTR: ["style", "onload"],
   });
+  // Keep images local or embedded, preserving the journal's no-external-load policy.
+  fragment.querySelectorAll("img").forEach((image) => {
+    const source = image.getAttribute("src") || "";
+    let url;
+    try {
+      url = new URL(source, location.href);
+    } catch {
+      image.replaceWith(document.createTextNode(image.alt));
+      return;
+    }
+    const embedded = /^data:image\/(png|jpeg|gif|webp);base64,/i.test(source);
+    if (
+      !embedded &&
+      (url.origin !== location.origin || url.pathname.startsWith("/api/"))
+    ) {
+      image.replaceWith(document.createTextNode(image.alt));
+      return;
+    }
+    image.removeAttribute("srcset");
+    image.removeAttribute("sizes");
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.referrerPolicy = "no-referrer";
+  });
+  const container = document.createElement("div");
+  container.append(fragment);
+  const html = container.innerHTML;
   setPage(
     `<div class="reading-progress" aria-hidden="true"><span></span></div><main id="main" class="article-page" tabindex="-1"><a class="back-link" href="/">← All editions</a><header class="article-header"><p class="eyebrow"><time datetime="${date}">${formatDate(date).toUpperCase()}</time><span class="eyebrow-divider">/</span> RESEARCH BRIEFING</p><h1>${escape(report.title)}</h1><div class="article-meta"><span>${metadata(report)}</span><button id="copy-link" class="quiet-button">Copy link ↗</button></div></header><div class="article-layout"><aside class="contents"><p class="eyebrow">IN THIS EDITION</p><nav id="contents-nav" aria-label="Table of contents"></nav><div class="margin-note"><span>Read. Reflect. Repeat.</span><p>Follow the sources.<br>Question the claims.<br>Keep the useful parts.</p></div></aside><article class="prose">${html}<div class="edition-end"><span class="end-mark">✳</span><h2>A good place to pause.</h2><p>You’re up to date with this edition.<br>Take the ideas that move your work forward.</p><a href="/">Back to the journal ${arrow}</a></div></article></div></main>`,
   );
@@ -495,6 +621,7 @@ async function article(date, seq, topicId = "default") {
       }
     }
   }
+  installMediaZoom();
 }
 
 function field(label, id, value, help = "", rows = 3) {

@@ -9,8 +9,8 @@
   "scripts": {
     "build": "esbuild web/app.js --bundle --minify --splitting --format=esm --outdir=static/assets --entry-names=app",
     "test:ui": "node test-ui.mjs",
-    "format": "prettier --write web static/*.html static/*.css *.mjs package.json",
-    "format:check": "prettier --check web static/*.html static/*.css *.mjs package.json"
+    "format": "prettier --write web static/*.html static/*.css static/*.js *.mjs package.json",
+    "format:check": "prettier --check web static/*.html static/*.css static/*.js *.mjs package.json"
   },
   "dependencies": {
     "dompurify": "3.4.17",
