@@ -21,7 +21,7 @@
     "katex": "0.18.2"
   },
   "devDependencies": {
-    "esbuild": "0.25.11",
+    "esbuild": "0.28.2",
     "playwright": "1.56.1",
     "prettier": "3.6.2"
   }
