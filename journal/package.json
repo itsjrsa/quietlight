@@ -13,7 +13,7 @@
     "format:check": "prettier --check web static/*.html static/*.css static/*.js *.mjs package.json"
   },
   "dependencies": {
-    "dompurify": "3.4.17",
+    "dompurify": "3.4.18",
     "marked": "15.0.12",
     "mermaid": "11.17.2"
   },
